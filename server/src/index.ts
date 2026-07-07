@@ -1,25 +1,29 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { Pool } from 'pg';
-
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import pool from "./db/pool.js";
+import sportsRoutes from "./features/sports/sports.routes.js";
+import usersRoutes from "./features/users/users.routes.js";
+import gamesRoutes from "./features/games/games.routes.js";
 dotenv.config();
 
 const app = express();
 app.use(cors());
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use("/api/sports", sportsRoutes);
+app.use("/api/users", usersRoutes);
+app.use("/api/games", gamesRoutes);
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
-app.get('/health/db', async (req, res) => {
+app.get("/health/db", async (req, res) => {
   try {
-    const result = await pool.query('SELECT PostGIS_Version();');
-    res.json({ status: 'ok', postgis: result.rows[0] });
+    const result = await pool.query("SELECT PostGIS_Version();");
+    res.json({ status: "ok", postgis: result.rows[0] });
   } catch (err) {
-    res.status(500).json({ status: 'error', message: (err as Error).message });
+    res.status(500).json({ status: "error", message: (err as Error).message });
   }
 });
 
