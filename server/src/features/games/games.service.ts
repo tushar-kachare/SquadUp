@@ -4,6 +4,12 @@ import type { CreateGameInput } from "@squadup/shared";
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+interface FindNearbyGamesParams {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  sportId?: number;
+}
 export async function createGame(gameData: CreateGameInput) {
   const {
     creatorId,
@@ -366,4 +372,45 @@ export async function cancelGame(gameId: string, userId: string) {
   } finally {
     client.release();
   }
+}
+
+export async function findNearbyGames(params: FindNearbyGamesParams) {
+  const { lat, lng, radiusKm, sportId } = params;
+  const radiusMeters = radiusKm * 1000;
+
+  const values: (number | string)[] = [lng, lat, radiusMeters];
+  let sportFilter = "";
+
+  if (sportId !== undefined) {
+    values.push(sportId);
+    sportFilter = `AND g.sport_id = $${values.length}`;
+  }
+
+  const query = `
+    SELECT
+      g.id,
+      g.creator_id AS "creatorId",
+      g.sport_id AS "sportId",
+      s.name AS "sportName",
+      ST_Y(g.location::geometry) AS "latitude",
+      ST_X(g.location::geometry) AS "longitude",
+      g.location_name AS "locationName",
+      g.min_players AS "minPlayers",
+      g.max_players AS "maxPlayers",
+      g.current_players AS "currentPlayers",
+      g.status,
+      g.start_time AS "startTime",
+      g.expires_at AS "expiresAt",
+      g.created_at AS "createdAt",
+      ST_Distance(g.location, ST_MakePoint($1, $2)::geography) AS "distanceMeters"
+    FROM games g
+    JOIN sports s ON s.id = g.sport_id
+    WHERE g.status = 'open'
+      AND ST_DWithin(g.location, ST_MakePoint($1, $2)::geography, $3)
+      ${sportFilter}
+    ORDER BY "distanceMeters" ASC;
+  `;
+
+  const result = await pool.query(query, values);
+  return result.rows;
 }

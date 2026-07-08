@@ -21,7 +21,17 @@ export interface Game {
   expiresAt: string;
   createdAt: string;
 }
-
+export interface NearbyGame extends Game {
+  sportName: string;
+  distanceMeters: number;
+}
+// Query params for GET /api/games/nearby
+export interface NearbyGamesQuery {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  sportId?: number;
+}
 export interface CreateGameInput {
   creatorId: string;
   sportId: number;
