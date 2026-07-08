@@ -5,6 +5,7 @@ import pool from "./db/pool.js";
 import sportsRoutes from "./features/sports/sports.routes.js";
 import usersRoutes from "./features/users/users.routes.js";
 import gamesRoutes from "./features/games/games.routes.js";
+import gameParticipantsRoutes from "./features/gameParticipants/gameParticipants.routes.js";
 dotenv.config();
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/sports", sportsRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/games", gamesRoutes);
+app.use("/api/game-participants", gameParticipantsRoutes);
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
