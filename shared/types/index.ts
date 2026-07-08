@@ -68,3 +68,11 @@ export interface CreateUserInput {
   displayName: string;
   email?: string;
 }
+
+export interface GameParticipant {
+  id: string;
+  gameId: string;
+  userId: string;
+  joinedAt: string;
+  user: User;
+}
