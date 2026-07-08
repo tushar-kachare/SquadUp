@@ -1,5 +1,8 @@
-import pool from '../../db/pool.js';
+import pool from "../../db/pool.js";
 import type { CreateGameInput } from "@squadup/shared";
+
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function createGame(gameData: CreateGameInput) {
   const {
@@ -14,25 +17,25 @@ export async function createGame(gameData: CreateGameInput) {
   } = gameData;
 
   if (!locationName.trim()) {
-    throw new Error('Location name is required');
+    throw new Error("Location name is required");
   }
 
   if (latitude < -90 || latitude > 90) {
-    throw new Error('Invalid latitude');
+    throw new Error("Invalid latitude");
   }
 
   if (longitude < -180 || longitude > 180) {
-    throw new Error('Invalid longitude');
+    throw new Error("Invalid longitude");
   }
 
   if (minPlayers > maxPlayers) {
-    throw new Error('Minimum players cannot exceed maximum players');
+    throw new Error("Minimum players cannot exceed maximum players");
   }
 
   const start = new Date(startTime);
 
   if (start <= new Date()) {
-    throw new Error('Start time must be in the future');
+    throw new Error("Start time must be in the future");
   }
 
   const expiresAt = new Date(start);
@@ -42,23 +45,37 @@ export async function createGame(gameData: CreateGameInput) {
     `SELECT
       EXISTS (SELECT 1 FROM users WHERE id = $1) AS "creatorExists",
       EXISTS (SELECT 1 FROM sports WHERE id = $2) AS "sportExists"`,
-    [creatorId, sportId]
+    [creatorId, sportId],
   );
 
   const { creatorExists, sportExists } = validation.rows[0];
 
   if (!creatorExists) {
-    throw new Error('Creator not found');
+    throw new Error("Creator not found");
   }
 
   if (!sportExists) {
-    throw new Error('Sport not found');
+    throw new Error("Sport not found");
+  }
+
+  const existingGame = await pool.query(
+    `SELECT 1
+   FROM games
+   WHERE creator_id = $1
+     AND sport_id = $2
+     AND status = 'open'
+   LIMIT 1`,
+    [creatorId, sportId],
+  );
+
+  if (existingGame.rowCount) {
+    throw new Error("You already have an active game for this sport");
   }
 
   const client = await pool.connect();
 
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
     const gameResult = await client.query(
       `INSERT INTO games (
@@ -105,7 +122,7 @@ export async function createGame(gameData: CreateGameInput) {
         maxPlayers,
         start,
         expiresAt,
-      ]
+      ],
     );
 
     const game = gameResult.rows[0];
@@ -113,14 +130,14 @@ export async function createGame(gameData: CreateGameInput) {
     await client.query(
       `INSERT INTO game_participants (game_id, user_id)
        VALUES ($1, $2)`,
-      [game.id, creatorId]
+      [game.id, creatorId],
     );
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
 
     return game;
   } catch (err) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     throw err;
   } finally {
     client.release();
@@ -178,10 +195,175 @@ export async function getGames() {
 }
 
 export async function joinGame(gameId: string, userId: string) {
-  // Phase 1:
-  // Simple implementation
-  // Phase 3:
-  // Transaction + row locking + Socket.io
+  if (!uuidRegex.test(userId)) {
+    throw new Error("Invalid user ID");
+  }
 
-  return {};
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const userResult = await client.query(
+      `SELECT EXISTS (SELECT 1 FROM users WHERE id = $1) AS "userExists"`,
+      [userId],
+    );
+
+    if (!userResult.rows[0].userExists) {
+      throw new Error("User not found");
+    }
+
+    const gameResult = await client.query(
+      `SELECT
+        id,
+        current_players AS "currentPlayers",
+        max_players AS "maxPlayers",
+        status
+       FROM games
+       WHERE id = $1
+       FOR UPDATE`,
+      [gameId],
+    );
+
+    const game = gameResult.rows[0];
+
+    if (!game) {
+      throw new Error("Game not found");
+    }
+
+    if (game.status !== "open") {
+      throw new Error("Game is not open");
+    }
+
+    const participantResult = await client.query(
+      `SELECT 1
+       FROM game_participants
+       WHERE game_id = $1
+         AND user_id = $2
+       LIMIT 1`,
+      [gameId, userId],
+    );
+
+    if (participantResult.rowCount) {
+      throw new Error("User already joined this game");
+    }
+
+    if (game.currentPlayers >= game.maxPlayers) {
+      throw new Error("Game is full");
+    }
+
+    const nextCurrentPlayers = game.currentPlayers + 1;
+    const nextStatus = nextCurrentPlayers >= game.maxPlayers ? "full" : "open";
+
+    await client.query(
+      `INSERT INTO game_participants (game_id, user_id)
+       VALUES ($1, $2)`,
+      [gameId, userId],
+    );
+
+    const updatedGameResult = await client.query(
+      `UPDATE games
+       SET
+        current_players = $2,
+        status = $3
+       WHERE id = $1
+       RETURNING
+        id,
+        creator_id AS "creatorId",
+        sport_id AS "sportId",
+        location_name AS "locationName",
+        ST_Y(location::geometry) AS latitude,
+        ST_X(location::geometry) AS longitude,
+        min_players AS "minPlayers",
+        max_players AS "maxPlayers",
+        current_players AS "currentPlayers",
+        status,
+        start_time AS "startTime",
+        expires_at AS "expiresAt",
+        created_at AS "createdAt"`,
+      [gameId, nextCurrentPlayers, nextStatus],
+    );
+
+    await client.query("COMMIT");
+
+    return updatedGameResult.rows[0];
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function cancelGame(gameId: string, userId: string) {
+  if (!uuidRegex.test(gameId)) {
+    throw new Error("Invalid game ID");
+  }
+
+  if (!uuidRegex.test(userId)) {
+    throw new Error("Invalid user ID");
+  }
+
+  const gameResult = await pool.query(
+    `SELECT
+      id,
+      creator_id AS "creatorId",
+      status
+     FROM games
+     WHERE id = $1`,
+    [gameId],
+  );
+
+  const game = gameResult.rows[0];
+
+  if (!game) {
+    throw new Error("Game not found");
+  }
+
+  if (game.creatorId !== userId) {
+    throw new Error("Only the creator can cancel this game");
+  }
+
+  if (game.status === "cancelled") {
+    throw new Error("Game is already cancelled");
+  }
+
+  if (game.status === "expired") {
+    throw new Error("Game is already expired");
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const updatedGameResult = await client.query(
+      `UPDATE games
+       SET status = 'cancelled'
+       WHERE id = $1
+       RETURNING
+        id,
+        creator_id AS "creatorId",
+        sport_id AS "sportId",
+        location_name AS "locationName",
+        ST_Y(location::geometry) AS latitude,
+        ST_X(location::geometry) AS longitude,
+        min_players AS "minPlayers",
+        max_players AS "maxPlayers",
+        current_players AS "currentPlayers",
+        status,
+        start_time AS "startTime",
+        expires_at AS "expiresAt",
+        created_at AS "createdAt"`,
+      [gameId],
+    );
+
+    await client.query("COMMIT");
+
+    return updatedGameResult.rows[0];
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
