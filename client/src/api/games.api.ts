@@ -1,4 +1,4 @@
-import type { CreateGameInput, Game } from "@squadup/shared";
+import type { CreateGameInput, Game, NearbyGame } from "@squadup/shared";
 import { apiRequest } from "./client";
 
 export function createGame(input: CreateGameInput) {
@@ -28,4 +28,23 @@ export function cancelGame(id: string, userId: string) {
     method: "PATCH",
     body: JSON.stringify({ userId }),
   });
+}
+
+export function fetchNearbyGames(
+  lat: number,
+  lng: number,
+  radiusKm: number,
+  sportId?: number,
+) {
+  const searchParams = new URLSearchParams({
+    lat: String(lat),
+    lng: String(lng),
+    radiusKm: String(radiusKm),
+  });
+
+  if (sportId !== undefined) {
+    searchParams.set("sportId", String(sportId));
+  }
+
+  return apiRequest<NearbyGame[]>(`/games/nearby?${searchParams.toString()}`);
 }
