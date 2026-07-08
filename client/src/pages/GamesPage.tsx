@@ -6,6 +6,7 @@ import { getSports } from "../api/sports.api";
 import { GameMarker } from "../components/map/GameMarker";
 import { GameMap } from "../components/map/GameMap";
 import { MapFilters } from "../components/map/MapFilters";
+import { RadiusCircle } from "../components/map/RadiusCircle";
 import { UserLocationMarker } from "../components/map/UserLocationMarker";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useNearbyGames } from "../hooks/useNearbyGames";
@@ -79,7 +80,13 @@ export function GamesPage() {
         center={position ? [position.lat, position.lng] : undefined}
       >
         {position && (
-          <UserLocationMarker position={[position.lat, position.lng]} />
+          <>
+            <RadiusCircle
+              center={[position.lat, position.lng]}
+              radiusKm={radiusKm}
+            />
+            <UserLocationMarker position={[position.lat, position.lng]} />
+          </>
         )}
         {nearbyGames.map((game) => (
           <GameMarker key={game.id} game={game} />
