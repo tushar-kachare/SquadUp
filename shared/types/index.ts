@@ -49,6 +49,8 @@ export interface SlotUpdatedEvent {
   status: Game["status"];
 }
 
+export type NewGameCreatedEvent = Game;
+
 export interface ApiSuccess<T> {
   success: true;
   data: T;

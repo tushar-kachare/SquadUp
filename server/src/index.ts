@@ -1,11 +1,13 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { createServer } from "node:http";
 import pool from "./db/pool.js";
 import sportsRoutes from "./features/sports/sports.routes.js";
 import usersRoutes from "./features/users/users.routes.js";
 import gamesRoutes from "./features/games/games.routes.js";
 import gameParticipantsRoutes from "./features/gameParticipants/gameParticipants.routes.js";
+import { initSocket } from "./sockets/index.js";
 dotenv.config();
 
 const app = express();
@@ -30,4 +32,8 @@ app.get("/health/db", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const httpServer = createServer(app);
+
+initSocket(httpServer);
+
+httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -1,5 +1,11 @@
 import pool from "../../db/pool.js";
-import type { CreateGameInput } from "@squadup/shared";
+import { io } from "../../sockets/index.js";
+import { getAreaRoomKey } from "../../sockets/geoRoom.js";
+import type {
+  CreateGameInput,
+  NewGameCreatedEvent,
+  SlotUpdatedEvent,
+} from "@squadup/shared";
 
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -141,6 +147,11 @@ export async function createGame(gameData: CreateGameInput) {
 
     await client.query("COMMIT");
 
+    io.to(getAreaRoomKey(game.latitude, game.longitude)).emit(
+      "newGameCreated",
+      game satisfies NewGameCreatedEvent,
+    );
+
     return game;
   } catch (err) {
     await client.query("ROLLBACK");
@@ -218,7 +229,7 @@ export async function joinGame(gameId: string, userId: string) {
       throw new Error("User not found");
     }
 
-    const gameResult = await client.query(
+    const gameResult = await client.query( // this is lock mechanism due to 'FOR UPDATE', it locks the row for the duration of the transaction to prevent race conditions when multiple users try to join the same game simultaneously. This ensures that the current player count is accurate and prevents overbooking of the game.
       `SELECT
         id,
         current_players AS "currentPlayers",
@@ -291,7 +302,15 @@ export async function joinGame(gameId: string, userId: string) {
 
     await client.query("COMMIT");
 
-    return updatedGameResult.rows[0];
+    const updatedGame = updatedGameResult.rows[0];
+
+    io.to(`game-${gameId}`).emit("slotUpdated", {
+      gameId,
+      currentPlayers: updatedGame.currentPlayers,
+      status: updatedGame.status,
+    } satisfies SlotUpdatedEvent);
+
+    return updatedGame;
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
