@@ -4,6 +4,9 @@ import { sendSuccess, sendError } from "../../utils/apiResponse.js";
 
 const MIN_RADIUS_KM = 1;
 const MAX_RADIUS_KM = 10;
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 type GameParams = {
   id: string;
 };
@@ -189,5 +192,42 @@ export async function getNearbyGames(req: Request, res: Response) {
       500,
       "NEARBY_GAMES_FAILED",
     );
+  }
+}
+export async function leaveGame(req: Request<GameParams>, res: Response) {
+  try {
+    if (!uuidRegex.test(req.params.id)) {
+      return sendError(res, "Invalid game ID", 400, "INVALID_GAME_ID");
+    }
+
+    const { userId } = req.body;
+
+    if (!userId) {
+      return sendError(res, "User ID is required", 400);
+    }
+
+    if (!uuidRegex.test(userId)) {
+      return sendError(res, "Invalid user ID", 400, "INVALID_USER_ID");
+    }
+
+    const game = await gamesService.leaveGame(req.params.id, userId);
+
+    sendSuccess(res, game);
+  } catch (err) {
+    console.error("Error leaving game:", err);
+
+    if (err instanceof Error) {
+      if (err.message === "Game not found") {
+        return sendError(res, err.message, 404, "GAME_NOT_FOUND");
+      }
+
+      if (err.message === "Creator cannot leave, use cancel instead") {
+        return sendError(res, err.message, 403, "FORBIDDEN");
+      }
+
+      return sendError(res, err.message, 400);
+    }
+
+    return sendError(res, "Failed to leave game", 500, "LEAVE_GAME_FAILED");
   }
 }

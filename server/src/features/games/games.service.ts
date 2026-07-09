@@ -3,6 +3,7 @@ import { io } from "../../sockets/index.js";
 import { getAreaRoomKey } from "../../sockets/geoRoom.js";
 import type {
   CreateGameInput,
+  Game,
   NewGameCreatedEvent,
   SlotUpdatedEvent,
 } from "@squadup/shared";
@@ -16,6 +17,20 @@ interface FindNearbyGamesParams {
   radiusKm: number;
   sportId?: number;
 }
+
+interface ExpiredGameRow {
+  id: string;
+  currentPlayers: number;
+}
+
+interface LockedGameRow {
+  id: string;
+  creatorId: string;
+  currentPlayers: number;
+  maxPlayers: number;
+  status: Game["status"];
+}
+
 export async function createGame(gameData: CreateGameInput) {
   const {
     creatorId,
@@ -311,6 +326,152 @@ export async function joinGame(gameId: string, userId: string) {
     } satisfies SlotUpdatedEvent);
 
     return updatedGame;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function leaveGame(gameId: string, userId: string) {
+  if (!uuidRegex.test(userId)) {
+    throw new Error("Invalid user ID");
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const gameResult = await client.query<LockedGameRow>(
+      `SELECT
+        id,
+        creator_id AS "creatorId",
+        current_players AS "currentPlayers",
+        max_players AS "maxPlayers",
+        status
+       FROM games
+       WHERE id = $1
+       FOR UPDATE`,
+      [gameId],
+    );
+
+    const game = gameResult.rows[0];
+
+    if (!game) {
+      throw new Error("Game not found");
+    }
+
+    if (userId === game.creatorId) {
+      throw new Error("Creator cannot leave, use cancel instead");
+    }
+
+    const participantResult = await client.query(
+      `SELECT 1
+       FROM game_participants
+       WHERE game_id = $1
+         AND user_id = $2
+       LIMIT 1`,
+      [gameId, userId],
+    );
+
+    if (!participantResult.rowCount) {
+      throw new Error("User is not a participant in this game");
+    }
+
+    await client.query(
+      `DELETE FROM game_participants
+       WHERE game_id = $1
+         AND user_id = $2`,
+      [gameId, userId],
+    );
+
+    const nextCurrentPlayers = game.currentPlayers - 1;
+    const nextStatus =
+      game.status === "full" && nextCurrentPlayers < game.maxPlayers
+        ? "open"
+        : game.status;
+
+    const updatedGameResult = await client.query(
+      `UPDATE games
+       SET
+        current_players = $2,
+        status = $3
+       WHERE id = $1
+       RETURNING
+        id,
+        creator_id AS "creatorId",
+        sport_id AS "sportId",
+        location_name AS "locationName",
+        ST_Y(location::geometry) AS latitude,
+        ST_X(location::geometry) AS longitude,
+        min_players AS "minPlayers",
+        max_players AS "maxPlayers",
+        current_players AS "currentPlayers",
+        status,
+        start_time AS "startTime",
+        expires_at AS "expiresAt",
+        created_at AS "createdAt"`,
+      [gameId, nextCurrentPlayers, nextStatus],
+    );
+
+    await client.query("COMMIT");
+
+    const updatedGame = updatedGameResult.rows[0];
+
+    io.to(`game-${gameId}`).emit("slotUpdated", {
+      gameId,
+      currentPlayers: updatedGame.currentPlayers,
+      status: updatedGame.status,
+    } satisfies SlotUpdatedEvent);
+
+    return updatedGame;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function expireOpenGames() {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const expiredGamesResult = await client.query<ExpiredGameRow>(
+      `SELECT
+        id,
+        current_players AS "currentPlayers"
+       FROM games
+       WHERE status = 'open'
+         AND expires_at <= NOW()
+       FOR UPDATE`,
+    );
+
+    const expiredGames = expiredGamesResult.rows;
+
+    if (expiredGames.length > 0) {
+      await client.query(
+        `UPDATE games
+         SET status = 'expired'
+         WHERE id = ANY($1::uuid[])`,
+        [expiredGames.map((game) => game.id)],
+      );
+    }
+
+    await client.query("COMMIT");
+
+    for (const game of expiredGames) {
+      io.to(`game-${game.id}`).emit("slotUpdated", {
+        gameId: game.id,
+        currentPlayers: game.currentPlayers,
+        status: "expired",
+      } satisfies SlotUpdatedEvent);
+    }
+
+    return expiredGames.map((game) => game.id);
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

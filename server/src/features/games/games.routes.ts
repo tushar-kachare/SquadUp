@@ -8,6 +8,6 @@ router.get("/", gamesController.getGames);
 router.get('/nearby', gamesController.getNearbyGames);
 router.get("/:id", gamesController.getGameById);
 router.post("/:id/join", gamesController.joinGame);
+router.delete("/:id/leave", gamesController.leaveGame);
 router.patch("/:id/cancel", gamesController.cancelGame);
-
 export default router;

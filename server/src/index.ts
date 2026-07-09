@@ -7,6 +7,7 @@ import sportsRoutes from "./features/sports/sports.routes.js";
 import usersRoutes from "./features/users/users.routes.js";
 import gamesRoutes from "./features/games/games.routes.js";
 import gameParticipantsRoutes from "./features/gameParticipants/gameParticipants.routes.js";
+import { startExpiryJob } from "./jobs/expireGames.job.js";
 import { initSocket } from "./sockets/index.js";
 dotenv.config();
 
@@ -18,8 +19,8 @@ app.use("/api/sports", sportsRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/games", gamesRoutes);
 app.use("/api/game-participants", gameParticipantsRoutes);
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get("/health", (_req, res) => {
+  res.status(200).send("OK");
 });
 
 app.get("/health/db", async (req, res) => {
@@ -35,5 +36,6 @@ const PORT = process.env.PORT || 5000;
 const httpServer = createServer(app);
 
 initSocket(httpServer);
+startExpiryJob();
 
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
