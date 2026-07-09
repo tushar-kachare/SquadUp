@@ -23,6 +23,13 @@ export function joinGame(id: string, userId: string) {
   });
 }
 
+export function leaveGame(id: string, userId: string) {
+  return apiRequest<Game>(`/games/${id}/leave`, {
+    method: "DELETE",
+    body: JSON.stringify({ userId }),
+  });
+}
+
 export function cancelGame(id: string, userId: string) {
   return apiRequest<Game>(`/games/${id}/cancel`, {
     method: "PATCH",

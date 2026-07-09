@@ -7,7 +7,7 @@ import type {
   SlotUpdatedEvent,
   Sport,
 } from "@squadup/shared";
-import { getGames } from "../api/games.api";
+import { getGame, getGames } from "../api/games.api";
 import { getSports } from "../api/sports.api";
 import { GameMarker } from "../components/map/GameMarker";
 import { GameMap } from "../components/map/GameMap";
@@ -71,6 +71,17 @@ export function GamesPage() {
   } = useSocket();
   const joinedRoomIds = useRef(new Set<string>());
   const visibleGameIds = useRef(new Set<string>());
+  const fullRoomIds = useRef(new Set<string>());
+  const gamesRef = useRef<Game[]>([]);
+  const visibleNearbyGamesRef = useRef<NearbyGame[]>([]);
+
+  useEffect(() => {
+    gamesRef.current = games;
+  }, [games]);
+
+  useEffect(() => {
+    visibleNearbyGamesRef.current = visibleNearbyGames;
+  }, [visibleNearbyGames]);
 
   useEffect(() => {
     setVisibleNearbyGames(nearbyGames);
@@ -86,6 +97,11 @@ export function GamesPage() {
       joinedRoomIds.current.clear();
 
       for (const gameId of visibleGameIds.current) {
+        joinGameRoom(gameId);
+        joinedRoomIds.current.add(gameId);
+      }
+
+      for (const gameId of fullRoomIds.current) {
         joinGameRoom(gameId);
         joinedRoomIds.current.add(gameId);
       }
@@ -112,6 +128,137 @@ export function GamesPage() {
   useEffect(
     () =>
       onSlotUpdated((event: SlotUpdatedEvent) => {
+        if (event.status !== "open") {
+          setGames((currentGames) =>
+            currentGames.filter((game) => game.id !== event.gameId),
+          );
+          setVisibleNearbyGames((currentGames) =>
+            currentGames.filter((game) => game.id !== event.gameId),
+          );
+          visibleGameIds.current.delete(event.gameId);
+
+          if (event.status === "full") {
+            fullRoomIds.current.add(event.gameId);
+            return;
+          }
+
+          fullRoomIds.current.delete(event.gameId);
+
+          if (joinedRoomIds.current.has(event.gameId)) {
+            leaveGameRoom(event.gameId);
+            joinedRoomIds.current.delete(event.gameId);
+          }
+
+          return;
+        }
+
+        fullRoomIds.current.delete(event.gameId);
+
+        const cachedGame = gamesRef.current.find(
+          (game) => game.id === event.gameId,
+        );
+        const cachedNearbyGame = visibleNearbyGamesRef.current.find(
+          (game) => game.id === event.gameId,
+        );
+
+        if (cachedGame) {
+          setGames((currentGames) =>
+            currentGames.some((game) => game.id === event.gameId)
+              ? currentGames.map((game) =>
+                  game.id === event.gameId
+                    ? {
+                        ...game,
+                        currentPlayers: event.currentPlayers,
+                        status: event.status,
+                      }
+                    : game,
+                )
+              : [
+                  {
+                    ...cachedGame,
+                    currentPlayers: event.currentPlayers,
+                    status: event.status,
+                  },
+                  ...currentGames,
+                ],
+          );
+        }
+
+        if (cachedNearbyGame) {
+          setVisibleNearbyGames((currentGames) =>
+            currentGames.some((game) => game.id === event.gameId)
+              ? currentGames.map((game) =>
+                  game.id === event.gameId
+                    ? {
+                        ...game,
+                        currentPlayers: event.currentPlayers,
+                        status: event.status,
+                      }
+                    : game,
+                )
+              : [
+                  {
+                    ...cachedNearbyGame,
+                    currentPlayers: event.currentPlayers,
+                    status: event.status,
+                  },
+                  ...currentGames,
+                ],
+          );
+          visibleGameIds.current.add(event.gameId);
+          return;
+        }
+
+        void getGame(event.gameId)
+          .then((freshGame) => {
+            setGames((currentGames) =>
+              currentGames.some((game) => game.id === freshGame.id)
+                ? currentGames.map((game) =>
+                    game.id === freshGame.id ? freshGame : game,
+                  )
+                : [freshGame, ...currentGames],
+            );
+
+            if (!position) {
+              return;
+            }
+
+            const distanceMeters = getDistanceMeters(position, {
+              lat: freshGame.latitude,
+              lng: freshGame.longitude,
+            });
+
+            if (
+              distanceMeters > radiusKm * 1000 ||
+              (sportId !== undefined && freshGame.sportId !== sportId)
+            ) {
+              return;
+            }
+
+            const sportName =
+              sports.find((sport) => sport.id === freshGame.sportId)?.name ??
+              `Sport #${freshGame.sportId}`;
+            const nearbyGame: NearbyGame = {
+              ...freshGame,
+              sportName,
+              distanceMeters,
+            };
+
+            setVisibleNearbyGames((currentGames) =>
+              currentGames.some((game) => game.id === nearbyGame.id)
+                ? currentGames.map((game) =>
+                    game.id === nearbyGame.id ? nearbyGame : game,
+                  )
+                : [...currentGames, nearbyGame],
+            );
+            visibleGameIds.current.add(freshGame.id);
+          })
+          .catch((err) =>
+            setError(
+              err instanceof Error ? err.message : "Failed to refresh game",
+            ),
+          );
+
         setVisibleNearbyGames((currentGames) =>
           currentGames.map((game) =>
             game.id === event.gameId
@@ -124,7 +271,7 @@ export function GamesPage() {
           ),
         );
       }),
-    [onSlotUpdated],
+    [leaveGameRoom, onSlotUpdated, position, radiusKm, sportId, sports],
   );
 
   useEffect(() => {
@@ -136,6 +283,10 @@ export function GamesPage() {
 
     for (const gameId of joinedRoomIds.current) {
       if (!nextRoomIds.has(gameId)) {
+        if (fullRoomIds.current.has(gameId)) {
+          continue;
+        }
+
         leaveGameRoom(gameId);
         joinedRoomIds.current.delete(gameId);
       }
