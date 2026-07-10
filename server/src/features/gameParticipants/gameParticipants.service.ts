@@ -28,7 +28,6 @@ export async function getGameParticipants(
       gp.joined_at AS "joinedAt",
       json_build_object(
         'id', u.id,
-        'firebaseUid', u.firebase_uid,
         'displayName', u.display_name,
         'email', u.email,
         'createdAt', u.created_at

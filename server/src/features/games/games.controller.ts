@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import * as gamesService from "./games.service.js";
+import { getUserIdByFirebaseUid } from "../users/users.service.js";
 import { sendSuccess, sendError } from "../../utils/apiResponse.js";
 
 const MIN_RADIUS_KM = 1;
@@ -13,7 +14,12 @@ type GameParams = {
 
 export async function createGame(req: Request, res: Response) {
   try {
-    const game = await gamesService.createGame(req.body);
+    if (!req.user) {
+      return sendError(res, "Authentication is required", 401, "UNAUTHORIZED");
+    }
+
+    const creatorId = await getUserIdByFirebaseUid(req.user.uid);
+    const game = await gamesService.createGame({ ...req.body, creatorId });
     sendSuccess(res, game, undefined, 201);
   } catch (err) {
     console.error("Error creating game:", err);
@@ -63,12 +69,11 @@ export async function getGames(req: Request, res: Response) {
 
 export async function joinGame(req: Request<GameParams>, res: Response) {
   try {
-    const { userId } = req.body;
-
-    if (!userId) {
-      return sendError(res, "User ID is required", 400);
+    if (!req.user) {
+      return sendError(res, "Authentication is required", 401, "UNAUTHORIZED");
     }
 
+    const userId = await getUserIdByFirebaseUid(req.user.uid);
     const game = await gamesService.joinGame(req.params.id, userId);
 
     sendSuccess(res, game);
@@ -85,12 +90,11 @@ export async function joinGame(req: Request<GameParams>, res: Response) {
 
 export async function cancelGame(req: Request<GameParams>, res: Response) {
   try {
-    const { userId } = req.body;
-
-    if (!userId) {
-      return sendError(res, "User ID is required", 400);
+    if (!req.user) {
+      return sendError(res, "Authentication is required", 401, "UNAUTHORIZED");
     }
 
+    const userId = await getUserIdByFirebaseUid(req.user.uid);
     const game = await gamesService.cancelGame(req.params.id, userId);
 
     sendSuccess(res, game);
@@ -200,16 +204,11 @@ export async function leaveGame(req: Request<GameParams>, res: Response) {
       return sendError(res, "Invalid game ID", 400, "INVALID_GAME_ID");
     }
 
-    const { userId } = req.body;
-
-    if (!userId) {
-      return sendError(res, "User ID is required", 400);
+    if (!req.user) {
+      return sendError(res, "Authentication is required", 401, "UNAUTHORIZED");
     }
 
-    if (!uuidRegex.test(userId)) {
-      return sendError(res, "Invalid user ID", 400, "INVALID_USER_ID");
-    }
-
+    const userId = await getUserIdByFirebaseUid(req.user.uid);
     const game = await gamesService.leaveGame(req.params.id, userId);
 
     sendSuccess(res, game);

@@ -1,13 +1,14 @@
 import { Router } from "express";
+import { requireAuth } from "../../middleware/auth.middleware.js";
 import * as gamesController from "./games.controller.js";
 
 const router = Router();
 
-router.post("/", gamesController.createGame);
+router.post("/", requireAuth, gamesController.createGame);
 router.get("/", gamesController.getGames);
 router.get('/nearby', gamesController.getNearbyGames);
 router.get("/:id", gamesController.getGameById);
-router.post("/:id/join", gamesController.joinGame);
-router.delete("/:id/leave", gamesController.leaveGame);
-router.patch("/:id/cancel", gamesController.cancelGame);
+router.post("/:id/join", requireAuth, gamesController.joinGame);
+router.delete("/:id/leave", requireAuth, gamesController.leaveGame);
+router.patch("/:id/cancel", requireAuth, gamesController.cancelGame);
 export default router;

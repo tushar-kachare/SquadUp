@@ -69,7 +69,6 @@ export type ApiResponse<T> = ApiSuccess<T> | ApiError;
 
 export interface User {
   id: string;
-  firebaseUid: string;
   displayName: string;
   email: string | null;
   createdAt: string;
