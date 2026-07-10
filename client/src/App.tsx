@@ -4,7 +4,7 @@ import { CreateGamePage } from "./pages/CreateGamePage";
 import { GameDetailsPage } from "./pages/GameDetailsPage";
 import { GamesPage } from "./pages/GamesPage";
 import { UsersPage } from "./pages/UsersPage";
-
+import {LoginPage} from "./pages/LoginPage";
 function App() {
   const [status, setStatus] = useState("checking...");
 
@@ -14,7 +14,7 @@ function App() {
       .then((data: { status?: string }) => setStatus(data.status ?? "unknown"))
       .catch(() => setStatus("failed to connect"));
   }, []);
-
+  return <LoginPage />;
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
@@ -38,6 +38,7 @@ function App() {
           <Route path="/games/new" element={<CreateGamePage />} />
           <Route path="/games" element={<GamesPage />} />
           <Route path="/games/:id" element={<GameDetailsPage />} />
+          <Route path="/login" element={<LoginPage />} />
         </Routes>
       </main>
     </div>
