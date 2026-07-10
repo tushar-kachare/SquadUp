@@ -1,9 +1,16 @@
 import type { Request, Response } from "express";
 import * as usersService from "./users.service.js";
 import { sendSuccess, sendError } from "../../utils/apiResponse.js";
+
 type IdParams = {
   id: string;
 };
+
+type SyncUserBody = {
+  displayName?: string | null;
+  email?: string | null;
+};
+
 export async function createUser(req: Request, res: Response) {
   try {
     const { firebaseUid, displayName, email } = req.body;
@@ -49,5 +56,29 @@ export async function getUserById(req: Request<IdParams>, res: Response) {
   } catch (err) {
     console.error("Error fetching user:", err);
     sendError(res, "Failed to fetch user");
+  }
+}
+
+export async function syncUser(req: Request<unknown, unknown, SyncUserBody>, res: Response) {
+  try {
+    if (!req.user) {
+      return sendError(res, "Authentication is required", 401, "UNAUTHORIZED");
+    }
+
+    const { displayName, email } = req.body;
+    const normalizedDisplayName =
+      displayName?.trim() || email?.trim() || "SquadUp User";
+    const normalizedEmail = email?.trim() || null;
+
+    const user = await usersService.syncUser(
+      req.user.uid,
+      normalizedDisplayName,
+      normalizedEmail,
+    );
+
+    return sendSuccess(res, user);
+  } catch (err) {
+    console.error("Error syncing user:", err);
+    return sendError(res, "Failed to sync user");
   }
 }
