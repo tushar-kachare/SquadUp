@@ -7,7 +7,6 @@ import { LocationPicker } from "../components/map/LocationPicker";
 
 export function CreateGamePage() {
   const [sports, setSports] = useState<Sport[]>([]);
-  const [creatorId, setCreatorId] = useState("");
   const [sportId, setSportId] = useState("");
   const [locationName, setLocationName] = useState("");
   const [selectedLocation, setSelectedLocation] = useState<{
@@ -36,7 +35,6 @@ export function CreateGamePage() {
 
     try {
       const game = await createGame({
-        creatorId,
         sportId: Number(sportId),
         locationName,
         latitude: selectedLocation?.lat ?? 0,
@@ -70,10 +68,6 @@ export function CreateGamePage() {
 
       {selectedLocation && (
         <form className="grid gap-4 rounded border border-slate-200 bg-white p-4 md:grid-cols-2" onSubmit={handleSubmit}>
-          <label className="block text-sm font-medium text-slate-700">
-            Creator ID
-            <input className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={creatorId} onChange={(event) => setCreatorId(event.target.value)} required />
-          </label>
           <label className="block text-sm font-medium text-slate-700">
             Sport
             <select className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={sportId} onChange={(event) => setSportId(event.target.value)} required>

@@ -11,9 +11,6 @@ export function GameDetailsPage() {
   const [game, setGame] = useState<Game | null>(null);
   const [participants, setParticipants] = useState<GameParticipant[]>([]);
   const [sports, setSports] = useState<Sport[]>([]);
-  const [joinUserId, setJoinUserId] = useState("");
-  const [leaveUserId, setLeaveUserId] = useState("");
-  const [cancelUserId, setCancelUserId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -59,7 +56,7 @@ export function GameDetailsPage() {
     setMessage("");
 
     try {
-      await joinGame(id, joinUserId);
+      await joinGame(id);
       await refreshGame(id);
       setMessage("Joined game");
     } catch (err) {
@@ -78,7 +75,7 @@ export function GameDetailsPage() {
     setMessage("");
 
     try {
-      await cancelGame(id, cancelUserId);
+      await cancelGame(id);
       await refreshGame(id);
       setMessage("Cancelled game");
     } catch (err) {
@@ -97,7 +94,7 @@ export function GameDetailsPage() {
     setMessage("");
 
     try {
-      await leaveGame(id, leaveUserId);
+      await leaveGame(id);
       await refreshGame(id);
       setMessage("Left game");
     } catch (err) {
@@ -173,10 +170,6 @@ export function GameDetailsPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <form className="space-y-4 rounded border border-slate-200 bg-white p-4" onSubmit={handleJoin}>
           <h2 className="font-semibold text-slate-950">Join Game</h2>
-          <label className="block text-sm font-medium text-slate-700">
-            User ID
-            <input className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={joinUserId} onChange={(event) => setJoinUserId(event.target.value)} required />
-          </label>
           <button className="rounded bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={submitting}>
             Join Game
           </button>
@@ -184,24 +177,13 @@ export function GameDetailsPage() {
 
         <form className="space-y-4 rounded border border-slate-200 bg-white p-4" onSubmit={handleLeave}>
           <h2 className="font-semibold text-slate-950">Leave Game</h2>
-          <label className="block text-sm font-medium text-slate-700">
-            User ID
-            <input className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={leaveUserId} onChange={(event) => setLeaveUserId(event.target.value)} required />
-          </label>
-          {leaveUserId === game.creatorId && (
-            <p className="text-sm text-red-700">Creator must cancel instead of leaving.</p>
-          )}
-          <button className="rounded bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={submitting || leaveUserId === game.creatorId}>
+          <button className="rounded bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={submitting}>
             Leave Game
           </button>
         </form>
 
         <form className="space-y-4 rounded border border-slate-200 bg-white p-4" onSubmit={handleCancel}>
           <h2 className="font-semibold text-slate-950">Cancel Game</h2>
-          <label className="block text-sm font-medium text-slate-700">
-            Creator ID
-            <input className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={cancelUserId} onChange={(event) => setCancelUserId(event.target.value)} required />
-          </label>
           <button className="rounded bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={submitting}>
             Cancel Game
           </button>

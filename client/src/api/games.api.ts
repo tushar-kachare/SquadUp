@@ -1,7 +1,9 @@
 import type { CreateGameInput, Game, NearbyGame } from "@squadup/shared";
 import { apiRequest } from "./client";
 
-export function createGame(input: CreateGameInput) {
+export type CreateGameRequest = Omit<CreateGameInput, "creatorId">;
+
+export function createGame(input: CreateGameRequest) {
   return apiRequest<Game>("/games", {
     method: "POST",
     body: JSON.stringify(input),
@@ -16,24 +18,21 @@ export function getGame(id: string) {
   return apiRequest<Game>(`/games/${id}`);
 }
 
-export function joinGame(id: string, userId: string) {
+export function joinGame(id: string) {
   return apiRequest<Game>(`/games/${id}/join`, {
     method: "POST",
-    body: JSON.stringify({ userId }),
   });
 }
 
-export function leaveGame(id: string, userId: string) {
+export function leaveGame(id: string) {
   return apiRequest<Game>(`/games/${id}/leave`, {
     method: "DELETE",
-    body: JSON.stringify({ userId }),
   });
 }
 
-export function cancelGame(id: string, userId: string) {
+export function cancelGame(id: string) {
   return apiRequest<Game>(`/games/${id}/cancel`, {
     method: "PATCH",
-    body: JSON.stringify({ userId }),
   });
 }
 
