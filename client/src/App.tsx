@@ -6,6 +6,7 @@ import { GamesPage } from "./pages/GamesPage";
 import { UsersPage } from "./pages/UsersPage";
 import { LoginPage } from "./pages/LoginPage";
 import { useAuth } from "./hooks/useAuth";
+import { InstallPrompt } from "./components/InstallPrompt";
 
 function App() {
   const [status, setStatus] = useState("checking...");
@@ -30,6 +31,7 @@ function App() {
             <p className="text-sm text-slate-600">Backend status: {status}</p>
           </div>
           <nav className="flex flex-wrap gap-2 text-sm font-medium">
+            <InstallPrompt />
             <Link className="rounded border border-slate-300 px-3 py-2 text-slate-950" to="/games/new">Create Game</Link>
             <Link className="rounded border border-slate-300 px-3 py-2 text-slate-950" to="/games">Games</Link>
             {user ? (
