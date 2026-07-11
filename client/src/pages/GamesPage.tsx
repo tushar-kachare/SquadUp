@@ -54,7 +54,7 @@ export function GamesPage() {
     loading: locationLoading,
     error: locationError,
   } = useGeolocation();
-  const { games: nearbyGames } = useNearbyGames(
+  const { games: nearbyGames, error: nearbyGamesError } = useNearbyGames(
     position?.lat,
     position?.lng,
     radiusKm,
@@ -405,6 +405,11 @@ export function GamesPage() {
       {locationError && (
         <p className="rounded bg-yellow-50 p-3 text-sm text-yellow-800">
           {locationError}
+        </p>
+      )}
+      {nearbyGamesError && !navigator.onLine && (
+        <p className="rounded bg-yellow-50 p-3 text-sm text-yellow-800">
+          {nearbyGamesError}
         </p>
       )}
       <MapFilters

@@ -40,7 +40,11 @@ export function useNearbyGames(
       .catch((err) => {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : "Failed to fetch nearby games",
+            navigator.onLine
+              ? err instanceof Error
+                ? err.message
+                : "Failed to fetch nearby games"
+              : "You're offline. Nearby games will be available when you reconnect.",
           );
           setGames([]);
         }

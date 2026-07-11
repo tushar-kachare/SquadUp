@@ -13,9 +13,6 @@ export default defineConfig({
       injectRegister: false,
       srcDir: 'src/sw',
       filename: 'service-worker.ts',
-      injectManifest: {
-        injectionPoint: undefined,
-      },
     }),
   ],
 })
