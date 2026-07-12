@@ -7,7 +7,7 @@ import sportsRoutes from "./features/sports/sports.routes.js";
 import usersRoutes from "./features/users/users.routes.js";
 import gamesRoutes from "./features/games/games.routes.js";
 import gameParticipantsRoutes from "./features/gameParticipants/gameParticipants.routes.js";
-import testAuthRoutes from "./routes/testAuth.routes.js";
+import pushRoutes from "./features/push/push.routes.js";
 import { startExpiryJob } from "./jobs/expireGames.job.js";
 import { initSocket } from "./sockets/index.js";
 dotenv.config();
@@ -20,7 +20,7 @@ app.use("/api/sports", sportsRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/games", gamesRoutes);
 app.use("/api/game-participants", gameParticipantsRoutes);
-app.use("/api/test-auth", testAuthRoutes);
+app.use("/api/push", pushRoutes);
 app.get("/health", (_req, res) => {
   res.status(200).send("OK");
 });

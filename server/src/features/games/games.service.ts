@@ -1,4 +1,5 @@
 import pool from "../../db/pool.js";
+import webpush from "../../config/webPush.js";
 import { io } from "../../sockets/index.js";
 import { getAreaRoomKey } from "../../sockets/geoRoom.js";
 import type {
@@ -29,6 +30,121 @@ interface LockedGameRow {
   currentPlayers: number;
   maxPlayers: number;
   status: Game["status"];
+}
+
+type PushSubscriptionRow = {
+  id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+};
+
+type PushNotificationContent = {
+  title: string;
+  body: string;
+};
+
+async function notifyOtherParticipants(
+  gameId: string,
+  excludedUserId: string,
+  notification: PushNotificationContent,
+): Promise<void> {
+  const subscriptionsResult = await pool.query<PushSubscriptionRow>(
+    `SELECT
+       ps.id,
+       ps.endpoint,
+       ps.p256dh,
+       ps.auth
+     FROM game_participants gp
+     JOIN users u ON u.id = gp.user_id
+     JOIN push_subscriptions ps ON ps.user_id = u.id
+     WHERE gp.game_id = $1
+       AND gp.user_id <> $2`,
+    [gameId, excludedUserId],
+  );
+
+  await Promise.allSettled(
+    subscriptionsResult.rows.map(async (subscription) => {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.p256dh,
+              auth: subscription.auth,
+            },
+          },
+          JSON.stringify(notification),
+        );
+      } catch (error: unknown) {
+        const statusCode =
+          typeof error === "object" && error !== null && "statusCode" in error
+            ? (error as { statusCode?: unknown }).statusCode
+            : undefined;
+
+        if (statusCode === 404 || statusCode === 410) {
+          try {
+            await pool.query(`DELETE FROM push_subscriptions WHERE id = $1`, [
+              subscription.id,
+            ]);
+          } catch (deleteError) {
+            console.error("Failed to delete expired push subscription:", deleteError);
+          }
+          return;
+        }
+
+        console.error("Failed to send participant push notification:", error);
+      }
+    }),
+  );
+}
+
+async function sendJoinNotifications(gameId: string, joinerUserId: string): Promise<void> {
+  try {
+    const joinerResult = await pool.query<{ displayName: string }>(
+      `SELECT display_name AS "displayName"
+       FROM users
+       WHERE id = $1`,
+      [joinerUserId],
+    );
+    const joiner = joinerResult.rows[0];
+
+    if (!joiner) {
+      console.error("Cannot send join push notification: joining user was not found");
+      return;
+    }
+
+    await notifyOtherParticipants(gameId, joinerUserId, {
+      title: "Someone joined your game",
+      body: `${joiner.displayName} joined your game`,
+    });
+  } catch (error) {
+    console.error("Failed to notify participants about a game join:", error);
+  }
+}
+
+async function sendLeaveNotifications(gameId: string, leaverUserId: string): Promise<void> {
+  try {
+    const leaverResult = await pool.query<{ displayName: string }>(
+      `SELECT display_name AS "displayName"
+       FROM users
+       WHERE id = $1`,
+      [leaverUserId],
+    );
+    const leaver = leaverResult.rows[0];
+
+    if (!leaver) {
+      console.error("Cannot send leave push notification: leaving user was not found");
+      return;
+    }
+
+    await notifyOtherParticipants(gameId, leaverUserId, {
+      title: "Someone left your game",
+      body: `${leaver.displayName} left your game`,
+    });
+  } catch (error) {
+    console.error("Failed to notify participants about a game leave:", error);
+  }
 }
 
 export async function createGame(gameData: CreateGameInput) {
@@ -325,6 +441,8 @@ export async function joinGame(gameId: string, userId: string) {
       status: updatedGame.status,
     } satisfies SlotUpdatedEvent);
 
+    void sendJoinNotifications(gameId, userId);
+
     return updatedGame;
   } catch (err) {
     await client.query("ROLLBACK");
@@ -424,6 +542,8 @@ export async function leaveGame(gameId: string, userId: string) {
       currentPlayers: updatedGame.currentPlayers,
       status: updatedGame.status,
     } satisfies SlotUpdatedEvent);
+
+    void sendLeaveNotifications(gameId, userId);
 
     return updatedGame;
   } catch (err) {
