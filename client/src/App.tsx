@@ -8,11 +8,13 @@ import { LoginPage } from "./pages/LoginPage";
 import { useAuth } from "./hooks/useAuth";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { usePushSubscription } from "./hooks/usePushSubscription";
 
 function App() {
   const [status, setStatus] = useState("checking...");
   const { user, loading, signOut } = useAuth();
   const isOnline = useOnlineStatus();
+  const { subscribe, unsubscribe, isSubscribed, loading: pushLoading } = usePushSubscription();
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL ?? "http://localhost:5000"}/health`)
@@ -52,12 +54,22 @@ function App() {
             )}
             <Link className="rounded border border-slate-300 px-3 py-2 text-slate-950" to="/games">Games</Link>
             {user ? (
-              <div className="flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-slate-700">
-                <span>{user.displayName || user.email || "Signed in"}</span>
-                <button className="font-medium text-slate-950 underline" type="button" onClick={() => void signOut()}>
-                  Logout
+              <>
+                <button
+                  className="rounded border border-slate-300 px-3 py-2 text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  type="button"
+                  disabled={pushLoading}
+                  onClick={() => void (isSubscribed ? unsubscribe() : subscribe())}
+                >
+                  {pushLoading ? "Updating notifications..." : isSubscribed ? "Disable Notifications" : "Enable Notifications"}
                 </button>
-              </div>
+                <div className="flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-slate-700">
+                  <span>{user.displayName || user.email || "Signed in"}</span>
+                  <button className="font-medium text-slate-950 underline" type="button" onClick={() => void signOut()}>
+                    Logout
+                  </button>
+                </div>
+              </>
             ) : (
               <Link className="rounded border border-slate-300 px-3 py-2 text-slate-950" to="/login">Login</Link>
             )}

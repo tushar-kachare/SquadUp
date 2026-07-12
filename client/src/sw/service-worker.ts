@@ -14,9 +14,28 @@ const apiBaseUrl =
   `${import.meta.env.VITE_API_URL ?? "http://localhost:5000"}/api`;
 const apiUrl = new URL(apiBaseUrl, self.location.origin);
 const apiPath = apiUrl.pathname.replace(/\/$/, "");
+type PushEventLike = Event & {
+  data?: { json: () => unknown };
+  waitUntil: (promise: Promise<unknown>) => void;
+};
+type PushPayload = { title?: string; body?: string };
+const serviceWorker = self as unknown as {
+  registration: {
+    showNotification: (title: string, options: NotificationOptions) => Promise<void>;
+  };
+};
 
 precacheAndRoute(manifest);
 cleanupOutdatedCaches();
+
+self.addEventListener("push", (event) => {
+  const pushEvent = event as PushEventLike;
+  const payload = pushEvent.data?.json() as PushPayload | undefined;
+  const title = payload?.title ?? "SquadUp";
+  const body = payload?.body ?? "";
+
+  pushEvent.waitUntil(serviceWorker.registration.showNotification(title, { body }));
+});
 
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL("/index.html")),
