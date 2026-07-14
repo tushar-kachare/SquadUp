@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import type {
   Game,
   NearbyGame,
@@ -14,6 +14,7 @@ import { GameMap } from "../components/map/GameMap";
 import { MapFilters } from "../components/map/MapFilters";
 import { RadiusCircle } from "../components/map/RadiusCircle";
 import { UserLocationMarker } from "../components/map/UserLocationMarker";
+import { Badge, Button, Card } from "../components/ui";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useNearbyGames } from "../hooks/useNearbyGames";
 import { useSocket } from "../hooks/useSocket";
@@ -46,9 +47,10 @@ export function GamesPage() {
   const [visibleNearbyGames, setVisibleNearbyGames] = useState<NearbyGame[]>([]);
   const [sports, setSports] = useState<Sport[]>([]);
   const [radiusKm, setRadiusKm] = useState(5);
-  const [sportId, setSportId] = useState<number | undefined>();
+  const [selectedSportIds, setSelectedSportIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
   const {
     position,
     loading: locationLoading,
@@ -58,8 +60,13 @@ export function GamesPage() {
     position?.lat,
     position?.lng,
     radiusKm,
-    sportId,
   );
+  const filteredNearbyGames =
+    selectedSportIds.length === 0
+      ? visibleNearbyGames
+      : visibleNearbyGames.filter((game) =>
+          selectedSportIds.includes(game.sportId),
+        );
   const {
     socket,
     joinGameRoom,
@@ -229,8 +236,7 @@ export function GamesPage() {
             });
 
             if (
-              distanceMeters > radiusKm * 1000 ||
-              (sportId !== undefined && freshGame.sportId !== sportId)
+              distanceMeters > radiusKm * 1000
             ) {
               return;
             }
@@ -271,7 +277,7 @@ export function GamesPage() {
           ),
         );
       }),
-    [leaveGameRoom, onSlotUpdated, position, radiusKm, sportId, sports],
+    [leaveGameRoom, onSlotUpdated, position, radiusKm, sports],
   );
 
   useEffect(() => {
@@ -315,8 +321,7 @@ export function GamesPage() {
         });
 
         if (
-          distanceMeters > radiusKm * 1000 ||
-          (sportId !== undefined && createdGame.sportId !== sportId)
+          distanceMeters > radiusKm * 1000
         ) {
           return;
         }
@@ -365,7 +370,6 @@ export function GamesPage() {
     position,
     radiusKm,
     socket,
-    sportId,
     sports,
   ]);
 
@@ -412,73 +416,66 @@ export function GamesPage() {
           {nearbyGamesError}
         </p>
       )}
-      <MapFilters
-        radiusKm={radiusKm}
-        onRadiusChange={setRadiusKm}
-        sportId={sportId}
-        onSportChange={setSportId}
-        sports={sports}
-      />
-      <GameMap
-        key={position ? `${position.lat}-${position.lng}` : "default"}
-        center={position ? [position.lat, position.lng] : undefined}
-      >
-        {position && (
-          <>
-            <RadiusCircle
-              center={[position.lat, position.lng]}
-              radiusKm={radiusKm}
-            />
-            <UserLocationMarker position={[position.lat, position.lng]} />
-          </>
-        )}
-        {visibleNearbyGames.map((game) => (
-          <GameMarker key={game.id} game={game} />
-        ))}
-      </GameMap>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {games.map((game) => (
-          <article
-            key={game.id}
-            className="space-y-3 rounded border border-slate-200 bg-white p-4"
+      <section className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+        <aside className="lg:flex lg:w-[38%] lg:shrink-0">
+          <MapFilters
+            radiusKm={radiusKm}
+            onRadiusChange={setRadiusKm}
+            selectedSportIds={selectedSportIds}
+            onSelectedSportsChange={setSelectedSportIds}
+            sports={sports}
+            resultCount={filteredNearbyGames.length}
+          />
+        </aside>
+        <div className="min-w-0 flex-1">
+          <GameMap
+            key={position ? `${position.lat}-${position.lng}` : "default"}
+            center={position ? [position.lat, position.lng] : undefined}
           >
-            <div>
-              <p className="text-sm font-medium text-slate-500">
-                Sport #{game.sportId}
+            {position && (
+              <>
+                <RadiusCircle
+                  center={[position.lat, position.lng]}
+                  radiusKm={radiusKm}
+                />
+                <UserLocationMarker position={[position.lat, position.lng]} />
+              </>
+            )}
+            {filteredNearbyGames.map((game) => (
+              <GameMarker key={game.id} game={game} />
+            ))}
+          </GameMap>
+        </div>
+      </section>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {filteredNearbyGames.map((game) => (
+          <Card key={game.id} className="flex !p-4 flex-col gap-4">
+            <div className="flex items-start justify-between gap-3">
+              <p className="font-display text-xl leading-none font-bold tracking-wide text-charcoal uppercase">
+                {game.sportName}
               </p>
-              <h2 className="text-lg font-semibold text-slate-950">
-                {game.locationName}
-              </h2>
+              <Badge status={game.status}>{game.status}</Badge>
             </div>
-            <dl className="space-y-1 text-sm text-slate-700">
-              <div className="flex justify-between gap-4">
-                <dt>Players</dt>
-                <dd>
-                  {game.currentPlayers}/{game.maxPlayers}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt>Status</dt>
-                <dd>{game.status}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt>Start</dt>
-                <dd>{new Date(game.startTime).toLocaleString()}</dd>
-              </div>
-            </dl>
-            <Link
-              className="inline-flex rounded border border-slate-300 px-3 py-2 text-sm font-medium text-slate-950"
-              to={`/games/${game.id}`}
-            >
-              View Details
-            </Link>
-          </article>
+            <div>
+              <p className="text-sm text-charcoal/65">📍 {game.locationName}</p>
+              <p className="mt-2 font-display text-2xl font-bold text-charcoal tabular-nums">
+                {game.currentPlayers} / {game.maxPlayers}
+                <span className="ml-1 font-body text-sm font-medium text-charcoal/70">players</span>
+              </p>
+              <p className="mt-2 text-[length:var(--text-caption)] text-charcoal/65">
+                {new Date(game.startTime).toLocaleString()} · {(game.distanceMeters / 1000).toFixed(1)} km
+              </p>
+            </div>
+            <Button className="mt-auto w-full" onClick={() => navigate(`/games/${game.id}`)}>
+              View Details →
+            </Button>
+          </Card>
         ))}
       </div>
 
-      {!loading && !error && games.length === 0 && (
-        <p className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          No games found.
+      {!loading && !error && filteredNearbyGames.length === 0 && (
+        <p className="rounded border border-mist bg-white p-4 text-sm text-charcoal/65">
+          No nearby games match these filters.
         </p>
       )}
     </div>
