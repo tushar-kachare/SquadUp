@@ -46,21 +46,16 @@ export function GameDetailsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const { user } = useAuth();
+  const [submitting, setSubmitting] = useState(false)
+  const { appUser } = useAuth();
 
   const sport = useMemo(
     () => sports.find((item) => item.id === game?.sportId),
     [game?.sportId, sports],
   );
-  const currentParticipant =
-    participants.find(
-      (participant) => user?.email && participant.user.email === user.email,
-    ) ??
-    participants.find(
-      (participant) =>
-        user?.displayName && participant.user.displayName === user.displayName,
-    );
+  const currentParticipant = participants.find(
+    (participant) => participant.userId === appUser?.id,
+  );
   const isParticipant = currentParticipant !== undefined;
   const isCreator = currentParticipant?.userId === game?.creatorId;
 
