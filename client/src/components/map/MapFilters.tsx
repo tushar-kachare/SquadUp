@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Sport } from "@squadup/shared";
-import { Button, Card } from "../ui";
+import { Button, Card, Skeleton } from "../ui";
 
 type MapFiltersProps = {
   radiusKm: number;
@@ -9,6 +9,7 @@ type MapFiltersProps = {
   onSelectedSportsChange: (ids: number[]) => void;
   sports: Sport[];
   resultCount: number;
+  loading?: boolean;
 };
 
 export function MapFilters({
@@ -18,6 +19,7 @@ export function MapFilters({
   onSelectedSportsChange,
   sports,
   resultCount,
+  loading = false,
 }: MapFiltersProps) {
   const [isSportMenuOpen, setIsSportMenuOpen] = useState(false);
   const sportMenuRef = useRef<HTMLDivElement>(null);
@@ -74,7 +76,7 @@ export function MapFilters({
               <div
                 aria-label="Sports"
                 aria-multiselectable="true"
-                className="absolute z-10 mt-2 max-h-56 w-full overflow-y-auto rounded-md border border-mist bg-white p-1 shadow-sm"
+                className="absolute z-10 mt-2 max-h-56 w-full overflow-y-auto rounded-md border border-mist bg-surface p-1 shadow-sm"
                 role="listbox"
               >
                 {sports.map((sport) => {
@@ -124,11 +126,15 @@ export function MapFilters({
         </div>
 
         <div className="mt-auto border-t border-mist pt-5">
-          <p className="font-display text-[length:var(--text-h3)] leading-none font-bold text-charcoal tabular-nums">
-            {resultCount}
-          </p>
+          {loading ? (
+            <Skeleton className="h-6 w-12" />
+          ) : (
+            <p className="font-display text-[length:var(--text-h3)] leading-none font-bold text-charcoal tabular-nums">
+              {resultCount}
+            </p>
+          )}
           <p className="mt-1 text-[length:var(--text-caption)] text-charcoal/65">
-            {resultCount === 1 ? "game found nearby" : "games found nearby"}
+            {loading ? "Searching games nearby..." : resultCount === 1 ? "game found nearby" : "games found nearby"}
           </p>
         </div>
       </div>

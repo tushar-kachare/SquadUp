@@ -2,6 +2,7 @@ import { FirebaseError } from "firebase/app";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { Alert, Button, Card, Input } from "../components/ui";
 
 type AuthMode = "login" | "signup";
 
@@ -42,11 +43,11 @@ export function LoginPage() {
     setSubmitting(true);
 
     try {
-      const credential = isSignUp
-        ? await signUpWithEmail(email, password)
-        : await signInWithEmail(email, password);
-
-      console.log("Firebase user:", credential.user);
+      if (isSignUp) {
+        await signUpWithEmail(email, password);
+      } else {
+        await signInWithEmail(email, password);
+      }
     } catch (authError) {
       setError(getAuthErrorMessage(authError));
     } finally {
@@ -59,8 +60,7 @@ export function LoginPage() {
     setSubmitting(true);
 
     try {
-      const credential = await signInWithGoogle();
-      console.log("Firebase user:", credential.user);
+      await signInWithGoogle();
     } catch (authError) {
       setError(getAuthErrorMessage(authError));
     } finally {
@@ -69,24 +69,24 @@ export function LoginPage() {
   }
 
   return (
-    <section className="mx-auto max-w-md">
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="mx-auto max-w-md py-6">
+      <Card className="!p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-slate-950">
+          <h1 className="font-display text-[length:var(--text-h2)] leading-tight font-bold text-charcoal">
             {isSignUp ? "Create your SquadUp account" : "Log in to SquadUp"}
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-charcoal/70">
             {isSignUp
               ? "Use email and password or continue with Google."
-              : "Welcome back. Choose a sign-in method below."}
+              : "Welcome back. Sign in to join pickup games nearby."}
           </p>
         </div>
 
         <form className="space-y-4" onSubmit={handleEmailAuth}>
-          <label className="block text-sm font-medium text-slate-700">
+          <label className="block text-sm font-semibold text-charcoal">
             Email
-            <input
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            <Input
+              className="mt-1.5"
               type="email"
               autoComplete="email"
               value={email}
@@ -95,10 +95,10 @@ export function LoginPage() {
             />
           </label>
 
-          <label className="block text-sm font-medium text-slate-700">
+          <label className="block text-sm font-semibold text-charcoal">
             Password
-            <input
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            <Input
+              className="mt-1.5"
               type="password"
               autoComplete={isSignUp ? "new-password" : "current-password"}
               value={password}
@@ -107,40 +107,37 @@ export function LoginPage() {
             />
           </label>
 
-          {error ? (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </p>
-          ) : null}
+          {error ? <Alert variant="error">{error}</Alert> : null}
 
-          <button
-            className="w-full rounded-md bg-slate-950 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+          <Button
+            className="w-full"
             type="submit"
             disabled={submitting || loading}
           >
             {submitting ? "Please wait..." : isSignUp ? "Sign Up" : "Log In"}
-          </button>
+          </Button>
         </form>
 
-        <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-slate-500">
-          <span className="h-px flex-1 bg-slate-200" />
+        <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wider text-charcoal/40">
+          <span className="h-px flex-1 bg-mist" />
           or
-          <span className="h-px flex-1 bg-slate-200" />
+          <span className="h-px flex-1 bg-mist" />
         </div>
 
-        <button
-          className="w-full rounded-md border border-slate-300 px-4 py-2 font-medium text-slate-950 disabled:cursor-not-allowed disabled:text-slate-400"
+        <Button
+          className="w-full"
+          variant="secondary"
           type="button"
           onClick={handleGoogleSignIn}
           disabled={submitting || loading}
         >
           Sign in with Google
-        </button>
+        </Button>
 
-        <p className="mt-5 text-center text-sm text-slate-600">
+        <p className="mt-6 text-center text-sm text-charcoal/70">
           {isSignUp ? "Already have an account?" : "Need an account?"}{" "}
           <button
-            className="font-medium text-slate-950 underline"
+            className="font-semibold text-turf underline underline-offset-4"
             type="button"
             onClick={() => {
               setError(null);
@@ -150,7 +147,7 @@ export function LoginPage() {
             {isSignUp ? "Log in" : "Sign up"}
           </button>
         </p>
-      </div>
+      </Card>
     </section>
   );
 }

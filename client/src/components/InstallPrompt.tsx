@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "./ui";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -36,12 +37,11 @@ export function InstallPrompt() {
   }
 
   return (
-    <button
-      className="rounded bg-blue-600 px-3 py-2 text-white hover:bg-blue-700"
-      type="button"
+    <Button
+      variant="secondary"
       onClick={() => void handleInstall()}
     >
       Install App
-    </button>
+    </Button>
   );
 }

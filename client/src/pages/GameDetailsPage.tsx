@@ -7,7 +7,7 @@ import { cancelGame, getGame, joinGame, leaveGame } from "../api/games.api";
 import { getGameParticipants } from "../api/gameParticipants.api";
 import { getSports } from "../api/sports.api";
 import { GameMap } from "../components/map/GameMap";
-import { Badge, Button, Card } from "../components/ui";
+import { Alert, Badge, Button, Card, EmptyState, LoadingState, formatErrorMessage } from "../components/ui";
 import { useAuth } from "../hooks/useAuth";
 
 function formatStartTime(startTime: string) {
@@ -46,7 +46,7 @@ export function GameDetailsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(false);
   const { appUser } = useAuth();
 
   const sport = useMemo(
@@ -57,7 +57,9 @@ export function GameDetailsPage() {
     (participant) => participant.userId === appUser?.id,
   );
   const isParticipant = currentParticipant !== undefined;
-  const isCreator = currentParticipant?.userId === game?.creatorId;
+  const isCreator = Boolean(
+    isParticipant && appUser?.id && game?.creatorId && appUser.id === game.creatorId,
+  );
 
   async function refreshGame(gameId: string) {
     const [freshGame, freshParticipants] = await Promise.all([
@@ -66,6 +68,7 @@ export function GameDetailsPage() {
     ]);
     setGame(freshGame);
     setParticipants(freshParticipants);
+    return freshGame;
   }
 
   useEffect(() => {
@@ -81,7 +84,7 @@ export function GameDetailsPage() {
         setSports(freshSports);
         setParticipants(freshParticipants);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to fetch game"))
+      .catch((err) => setError(formatErrorMessage(err, "Failed to fetch game details.")))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -95,10 +98,10 @@ export function GameDetailsPage() {
 
     try {
       await joinGame(id);
-      await refreshGame(id);
-      setMessage("Joined game");
+      const freshGame = await refreshGame(id);
+      setMessage(`You're in! See you at ${freshGame.locationName}.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to join game");
+      setError(formatErrorMessage(err, "Unable to join game. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -115,9 +118,9 @@ export function GameDetailsPage() {
     try {
       await cancelGame(id);
       await refreshGame(id);
-      setMessage("Cancelled game");
+      setMessage("This game has been cancelled.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel game");
+      setError(formatErrorMessage(err, "Unable to cancel game. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -134,33 +137,37 @@ export function GameDetailsPage() {
     try {
       await leaveGame(id);
       await refreshGame(id);
-      setMessage("Left game");
+      setMessage("You have left this game.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to leave game");
+      setError(formatErrorMessage(err, "Unable to leave game. Please try again."));
     } finally {
       setSubmitting(false);
     }
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-600">Loading game...</p>;
+    return <LoadingState label="Loading game details..." size="large" />;
   }
 
   if (!game) {
     return (
       <div className="space-y-4">
-        {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <Link className="text-sm font-medium text-slate-950 underline" to="/games">Back to games</Link>
+        {error && <Alert variant="error">{error}</Alert>}
+        <Link className="inline-flex items-center text-sm font-semibold text-turf hover:underline" to="/games">
+          ← Back to games
+        </Link>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Link className="text-sm font-semibold text-turf underline underline-offset-4" to="/games">Back to games</Link>
+      <Link className="inline-flex items-center text-sm font-semibold text-turf hover:underline" to="/games">
+        ← Back to games
+      </Link>
 
-      {message && <p className="rounded border border-turf/20 bg-turf/10 p-3 text-sm text-turf">{message}</p>}
-      {error && <p className="rounded border border-court-red/20 bg-court-red/10 p-3 text-sm text-court-red">{error}</p>}
+      {message && <Alert variant="success">{message}</Alert>}
+      {error && <Alert variant="error">{error}</Alert>}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="space-y-4 lg:col-span-2">
@@ -177,7 +184,7 @@ export function GameDetailsPage() {
 
             <p className="mt-6 font-display text-[length:var(--text-h2)] leading-none font-bold text-charcoal tabular-nums">
               {game.currentPlayers} / {game.maxPlayers}
-              <span className="ml-2 font-body text-base font-medium text-charcoal/70">players</span>
+              <span className="ml-2 font-body text-base font-medium text-charcoal/70">players enrolled</span>
             </p>
 
             <div className="mt-6 grid gap-3 border-t border-mist pt-5 text-sm sm:grid-cols-2">
@@ -195,7 +202,12 @@ export function GameDetailsPage() {
           <Card>
             <h2 className="font-display text-[length:var(--text-h3)] leading-none font-bold text-charcoal">Participants</h2>
             {participants.length === 0 ? (
-              <p className="mt-3 text-sm text-charcoal/65">No participants found.</p>
+              <EmptyState
+                className="mt-4"
+                description="Be the first to join this game!"
+                icon="👥"
+                title="No players signed up yet"
+              />
             ) : (
               <ul className="mt-4 divide-y divide-mist">
                 {participants.map((participant) => (
@@ -233,7 +245,7 @@ export function GameDetailsPage() {
 
         <aside>
           <Card className="overflow-hidden !p-0">
-            <GameMap center={[game.latitude, game.longitude]} zoom={15} style={{ height: "180px" }}>
+            <GameMap center={[game.latitude, game.longitude]} zoom={15} style={{ height: "200px" }}>
               <Marker position={[game.latitude, game.longitude]} />
             </GameMap>
             <div className="p-4">
@@ -243,7 +255,7 @@ export function GameDetailsPage() {
                 rel="noreferrer"
                 target="_blank"
               >
-                Get Directions
+                Get Directions ↗
               </a>
             </div>
           </Card>

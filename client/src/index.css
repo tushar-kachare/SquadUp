@@ -8,6 +8,7 @@
   --amber: #e8a93b;
   --court-red: #c1432e;
   --mist: #dce3dd;
+  --surface: #ffffff;
 
   --font-squad-display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-squad-body: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -20,6 +21,16 @@
   --text-caption: 0.75rem;
 }
 
+html.dark {
+  --turf: #34d399;
+  --chalk: #242c37;
+  --charcoal: #f3f4f6;
+  --amber: #f59e0b;
+  --court-red: #f87171;
+  --mist: #455265;
+  --surface: #2f3846;
+}
+
 @theme inline {
   --color-turf: var(--turf);
   --color-chalk: var(--chalk);
@@ -27,6 +38,7 @@
   --color-amber: var(--amber);
   --color-court-red: var(--court-red);
   --color-mist: var(--mist);
+  --color-surface: var(--surface);
 
   --font-display: var(--font-squad-display);
   --font-body: var(--font-squad-body);
@@ -37,6 +49,7 @@
     background: var(--chalk);
     color: var(--charcoal);
     font-family: var(--font-squad-body);
+    transition: background-color 0.3s, color 0.3s;
   }
 
   body {
@@ -59,4 +72,20 @@
 
 .squadup-game-popup .leaflet-popup-tip {
   background: var(--chalk);
+}
+
+/* Leaflet controls & tiles — dark mode overrides */
+html.dark .leaflet-tile-pane {
+  filter: brightness(0.7) invert(1) contrast(1.25) hue-rotate(190deg) saturate(0.75);
+}
+
+html.dark .leaflet-control-zoom a {
+  background-color: var(--surface);
+  color: var(--charcoal);
+  border-color: var(--mist);
+}
+
+html.dark .leaflet-control-attribution {
+  background-color: var(--surface) !important;
+  color: var(--charcoal);
 }

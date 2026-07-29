@@ -8,7 +8,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { useAuth } from "./hooks/useAuth";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
-import { Button, Card } from "./components/ui";
+import { Alert, Button, Card, LoadingState, ThemeToggle } from "./components/ui";
 
 function getInitials(displayName: string | null, email: string | null) {
   const name = displayName?.trim();
@@ -49,22 +49,27 @@ function App() {
   }, [isProfileMenuOpen]);
 
   if (loading) {
-    return <p className="p-4 text-sm text-slate-600">Checking authentication...</p>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-chalk">
+        <LoadingState label="Checking authentication..." size="large" />
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="relative z-[1000] border-b border-mist bg-chalk">
+    <div className="min-h-screen bg-chalk text-charcoal font-body">
+      <header className="relative z-[1000] border-b border-mist bg-chalk shadow-xs">
         {!isOnline && (
-          <p className="bg-yellow-100 px-4 py-2 text-center text-sm text-yellow-900">
+          <Alert className="rounded-none border-x-0 border-t-0" variant="warning">
             You&apos;re offline. You can browse cached games, but creating or joining games is unavailable.
-          </p>
+          </Alert>
         )}
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="font-display text-2xl leading-none font-bold text-charcoal">SquadUp</p>
           </div>
-          <nav className="flex flex-wrap gap-2 text-sm font-medium">
+          <nav className="flex flex-wrap items-center gap-2 text-sm font-medium">
+            <ThemeToggle />
             <InstallPrompt />
             {isOnline ? (
               <Button onClick={() => navigate("/games/new")}>Create Game</Button>

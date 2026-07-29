@@ -14,7 +14,7 @@ import { GameMap } from "../components/map/GameMap";
 import { MapFilters } from "../components/map/MapFilters";
 import { RadiusCircle } from "../components/map/RadiusCircle";
 import { UserLocationMarker } from "../components/map/UserLocationMarker";
-import { Badge, Button, Card } from "../components/ui";
+import { Alert, Badge, Button, Card, CardSkeleton, EmptyState, formatErrorMessage } from "../components/ui";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useNearbyGames } from "../hooks/useNearbyGames";
 import { useSocket } from "../hooks/useSocket";
@@ -56,11 +56,16 @@ export function GamesPage() {
     loading: locationLoading,
     error: locationError,
   } = useGeolocation();
-  const { games: nearbyGames, error: nearbyGamesError } = useNearbyGames(
+  const {
+    games: nearbyGames,
+    loading: nearbyLoading,
+    error: nearbyGamesError,
+  } = useNearbyGames(
     position?.lat,
     position?.lng,
     radiusKm,
   );
+  const isPageLoading = loading || locationLoading || nearbyLoading;
   const filteredNearbyGames =
     selectedSportIds.length === 0
       ? visibleNearbyGames
@@ -261,7 +266,7 @@ export function GamesPage() {
           })
           .catch((err) =>
             setError(
-              err instanceof Error ? err.message : "Failed to refresh game",
+              formatErrorMessage(err, "Failed to refresh game details."),
             ),
           );
 
@@ -377,7 +382,7 @@ export function GamesPage() {
     getGames()
       .then(setGames)
       .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to fetch games"),
+        setError(formatErrorMessage(err, "Failed to fetch games.")),
       )
       .finally(() => setLoading(false));
   }, []);
@@ -386,36 +391,36 @@ export function GamesPage() {
     getSports()
       .then(setSports)
       .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to fetch sports"),
+        setError(formatErrorMessage(err, "Failed to fetch sports.")),
       );
   }, []);
 
   return (
     <div className="space-y-6">
-      <section className="rounded border border-slate-200 bg-white p-4">
-        <h1 className="text-xl font-semibold text-slate-950">Games</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Fetched from the existing games endpoint.
+      <section className="space-y-1">
+        <h1 className="font-display text-4xl leading-none font-bold text-charcoal">
+          Find Games Nearby
+        </h1>
+        <p className="font-body text-base text-charcoal/70">
+          Discover pickup games around you, filter by sport or distance, and jump right into the action.
         </p>
       </section>
 
-      {loading && <p className="text-sm text-slate-600">Loading games...</p>}
-      {error && (
-        <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
-      )}
+      {error && <Alert variant="error">{error}</Alert>}
       {locationLoading && (
-        <p className="text-sm text-slate-600">Checking your location...</p>
+        <Alert title="Locating..." variant="info">
+          Detecting your GPS position for nearby games...
+        </Alert>
       )}
       {locationError && (
-        <p className="rounded bg-yellow-50 p-3 text-sm text-yellow-800">
+        <Alert title="Location Access" variant="warning">
           {locationError}
-        </p>
+        </Alert>
       )}
       {nearbyGamesError && !navigator.onLine && (
-        <p className="rounded bg-yellow-50 p-3 text-sm text-yellow-800">
-          {nearbyGamesError}
-        </p>
+        <Alert variant="warning">{nearbyGamesError}</Alert>
       )}
+
       <section className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
         <aside className="lg:flex lg:w-[38%] lg:shrink-0">
           <MapFilters
@@ -425,6 +430,7 @@ export function GamesPage() {
             onSelectedSportsChange={setSelectedSportIds}
             sports={sports}
             resultCount={filteredNearbyGames.length}
+            loading={isPageLoading}
           />
         </aside>
         <div className="min-w-0 flex-1">
@@ -447,37 +453,67 @@ export function GamesPage() {
           </GameMap>
         </div>
       </section>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filteredNearbyGames.map((game) => (
-          <Card key={game.id} className="flex !p-4 flex-col gap-4">
-            <div className="flex items-start justify-between gap-3">
-              <p className="font-display text-xl leading-none font-bold tracking-wide text-charcoal uppercase">
-                {game.sportName}
-              </p>
-              <Badge status={game.status}>{game.status}</Badge>
-            </div>
-            <div>
-              <p className="text-sm text-charcoal/65">📍 {game.locationName}</p>
-              <p className="mt-2 font-display text-2xl font-bold text-charcoal tabular-nums">
-                {game.currentPlayers} / {game.maxPlayers}
-                <span className="ml-1 font-body text-sm font-medium text-charcoal/70">players</span>
-              </p>
-              <p className="mt-2 text-[length:var(--text-caption)] text-charcoal/65">
-                {new Date(game.startTime).toLocaleString()} · {(game.distanceMeters / 1000).toFixed(1)} km
-              </p>
-            </div>
-            <Button className="mt-auto w-full" onClick={() => navigate(`/games/${game.id}`)}>
-              View Details →
-            </Button>
-          </Card>
-        ))}
-      </div>
 
-      {!loading && !error && filteredNearbyGames.length === 0 && (
-        <p className="rounded border border-mist bg-white p-4 text-sm text-charcoal/65">
-          No nearby games match these filters.
-        </p>
-      )}
+      {isPageLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      ) : filteredNearbyGames.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredNearbyGames.map((game) => (
+            <Card key={game.id} className="flex flex-col justify-between gap-4 !p-5">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-display text-xl leading-none font-bold tracking-wide text-charcoal uppercase">
+                    {game.sportName}
+                  </h3>
+                  <Badge status={game.status}>{game.status}</Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-charcoal/70">📍 {game.locationName}</p>
+                  <p className="mt-2 font-display text-2xl font-bold text-charcoal tabular-nums">
+                    {game.currentPlayers} / {game.maxPlayers}
+                    <span className="ml-1.5 font-body text-sm font-medium text-charcoal/70">players</span>
+                  </p>
+                  <p className="mt-2 text-[length:var(--text-caption)] text-charcoal/65">
+                    {new Date(game.startTime).toLocaleString(undefined, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })} · {(game.distanceMeters / 1000).toFixed(1)} km away
+                  </p>
+                </div>
+              </div>
+              <Button className="mt-2 w-full" onClick={() => navigate(`/games/${game.id}`)}>
+                View Details →
+              </Button>
+            </Card>
+          ))}
+        </div>
+      ) : !error ? (
+        <EmptyState
+          action={
+            selectedSportIds.length > 0 || radiusKm < 10 ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSelectedSportIds([]);
+                  setRadiusKm(10);
+                }}
+              >
+                Clear Filters
+              </Button>
+            ) : undefined
+          }
+          description="No nearby games match your current filter criteria. Try expanding your search radius or clearing sport filters."
+          icon="🔍"
+          title="No games found nearby"
+        />
+      ) : null}
     </div>
   );
 }
