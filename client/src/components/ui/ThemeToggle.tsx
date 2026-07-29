@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
-type Theme = "light" | "dark";
+export type Theme = "light" | "dark";
 
-function getInitialTheme(): Theme {
+export function getInitialTheme(): Theme {
   const stored = localStorage.getItem("squadup-theme") as Theme | null;
 
   if (stored === "light" || stored === "dark") {
@@ -14,9 +14,15 @@ function getInitialTheme(): Theme {
     : "light";
 }
 
-function applyTheme(theme: Theme) {
+export function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
   localStorage.setItem("squadup-theme", theme);
+}
+
+export function initTheme(): Theme {
+  const theme = getInitialTheme();
+  applyTheme(theme);
+  return theme;
 }
 
 export function ThemeToggle() {

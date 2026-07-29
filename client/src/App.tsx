@@ -50,8 +50,18 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-chalk">
-        <LoadingState label="Checking authentication..." size="large" />
+      <div className="flex min-h-screen flex-col bg-chalk text-charcoal font-body">
+        <header className="relative z-[1000] border-b border-mist bg-chalk shadow-xs">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+            <div>
+              <p className="font-display text-2xl leading-none font-bold text-charcoal">SquadUp</p>
+            </div>
+            <ThemeToggle />
+          </div>
+        </header>
+        <main className="flex flex-1 items-center justify-center p-4">
+          <LoadingState label="Checking authentication..." size="large" />
+        </main>
       </div>
     );
   }
